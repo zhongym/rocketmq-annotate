@@ -42,6 +42,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.BufferedInputStream;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -64,7 +65,7 @@ public class BrokerStartup {
             controller.start();
 
             String tip = "The broker[" + controller.getBrokerConfig().getBrokerName() + ", "
-                + controller.getBrokerAddr() + "] boot success. serializeType=" + RemotingCommand.getSerializeTypeConfigInThisServer();
+                    + controller.getBrokerAddr() + "] boot success. serializeType=" + RemotingCommand.getSerializeTypeConfigInThisServer();
 
             if (null != controller.getBrokerConfig().getNamesrvAddr()) {
                 tip += " and name server is " + controller.getBrokerConfig().getNamesrvAddr();
@@ -99,54 +100,63 @@ public class BrokerStartup {
         }
 
         try {
-            //PackageConflictDetect.detectFastjson();
+            //使用apache.cli包解析命令行输入参数
             Options options = ServerUtil.buildCommandlineOptions(new Options());
-            commandLine = ServerUtil.parseCmdLine("mqbroker", args, buildCommandlineOptions(options),
-                new PosixParser());
+            commandLine = ServerUtil.parseCmdLine("mqbroker", args,
+                    buildCommandlineOptions(options), new PosixParser());
             if (null == commandLine) {
                 System.exit(-1);
             }
-
+            //broker配置
             final BrokerConfig brokerConfig = new BrokerConfig();
+            //netty服务端配置
             final NettyServerConfig nettyServerConfig = new NettyServerConfig();
+            //netty客户端配置
             final NettyClientConfig nettyClientConfig = new NettyClientConfig();
-
-            nettyClientConfig.setUseTLS(Boolean.parseBoolean(System.getProperty(TLS_ENABLE,
-                String.valueOf(TlsSystemConfig.tlsMode == TlsMode.ENFORCING))));
+            //是否使用tls
+            nettyClientConfig.setUseTLS(Boolean.parseBoolean(System.getProperty(TLS_ENABLE, String.valueOf(TlsSystemConfig.tlsMode == TlsMode.ENFORCING))));
+            //启动端口
             nettyServerConfig.setListenPort(10911);
+            //消息存配置
             final MessageStoreConfig messageStoreConfig = new MessageStoreConfig();
 
+            //从配置
             if (BrokerRole.SLAVE == messageStoreConfig.getBrokerRole()) {
                 int ratio = messageStoreConfig.getAccessMessageInMemoryMaxRatio() - 10;
                 messageStoreConfig.setAccessMessageInMemoryMaxRatio(ratio);
             }
 
+            // 命令行指定配置文件 configFile
             if (commandLine.hasOption('c')) {
                 String file = commandLine.getOptionValue('c');
                 if (file != null) {
+                    //加载配置文件
                     configFile = file;
-                    InputStream in = new BufferedInputStream(new FileInputStream(file));
-                    properties = new Properties();
-                    properties.load(in);
+                    properties = load(configFile);
 
+                    //将配置属性设置到环境变量
                     properties2SystemEnv(properties);
+
+                    //将配置文件配置项设置到 各个配置对象中
                     MixAll.properties2Object(properties, brokerConfig);
                     MixAll.properties2Object(properties, nettyServerConfig);
                     MixAll.properties2Object(properties, nettyClientConfig);
                     MixAll.properties2Object(properties, messageStoreConfig);
 
+                    //保存配置文件路径
                     BrokerPathConfigHelper.setBrokerConfigPath(file);
-                    in.close();
                 }
             }
-
+            //将命令行设置的属性 设置到brokerConfig
             MixAll.properties2Object(ServerUtil.commandLine2Properties(commandLine), brokerConfig);
 
+            //ROCKETMQ_HOME 不能为null,可以设置到环境变量中
             if (null == brokerConfig.getRocketmqHome()) {
                 System.out.printf("Please set the %s variable in your environment to match the location of the RocketMQ installation", MixAll.ROCKETMQ_HOME_ENV);
                 System.exit(-2);
             }
 
+            //名称服务器地址检验
             String namesrvAddr = brokerConfig.getNamesrvAddr();
             if (null != namesrvAddr) {
                 try {
@@ -156,12 +166,13 @@ public class BrokerStartup {
                     }
                 } catch (Exception e) {
                     System.out.printf(
-                        "The Name Server Address[%s] illegal, please set it as follows, \"127.0.0.1:9876;192.168.0.1:9876\"%n",
-                        namesrvAddr);
+                            "The Name Server Address[%s] illegal, please set it as follows, \"127.0.0.1:9876;192.168.0.1:9876\"%n",
+                            namesrvAddr);
                     System.exit(-3);
                 }
             }
 
+            //baroker角色校验
             switch (messageStoreConfig.getBrokerRole()) {
                 case ASYNC_MASTER:
                 case SYNC_MASTER:
@@ -212,19 +223,21 @@ public class BrokerStartup {
             MixAll.printObjectProperties(log, messageStoreConfig);
 
             final BrokerController controller = new BrokerController(
-                brokerConfig,
-                nettyServerConfig,
-                nettyClientConfig,
-                messageStoreConfig);
+                    brokerConfig,
+                    nettyServerConfig,
+                    nettyClientConfig,
+                    messageStoreConfig);
             // remember all configs to prevent discard
             controller.getConfiguration().registerConfig(properties);
 
+            //初始化
             boolean initResult = controller.initialize();
             if (!initResult) {
                 controller.shutdown();
                 System.exit(-3);
             }
 
+            //注册关闭钩子调用shutdown()
             Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
                 private volatile boolean hasShutdown = false;
                 private AtomicInteger shutdownTimes = new AtomicInteger(0);
@@ -251,6 +264,14 @@ public class BrokerStartup {
         }
 
         return null;
+    }
+
+    private static Properties load(String configFile) throws Exception {
+        Properties properties = new Properties();
+        try (InputStream in = new BufferedInputStream(new FileInputStream(configFile))) {
+            properties.load(in);
+        }
+        return properties;
     }
 
     private static void properties2SystemEnv(Properties properties) {
