@@ -159,6 +159,7 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
         this.producerGroup = producerGroup;
         defaultMQProducerImpl = new DefaultMQProducerImpl(this, rpcHook);
         //if client open the message trace feature
+        //开始了消息跟踪
         if (enableMsgTrace) {
             try {
                 AsyncTraceDispatcher dispatcher = new AsyncTraceDispatcher(customizedTraceTopic, rpcHook);
@@ -202,6 +203,7 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     public DefaultMQProducer(final String namespace, final String producerGroup, RPCHook rpcHook) {
         this.namespace = namespace;
         this.producerGroup = producerGroup;
+        //创建内部实现
         defaultMQProducerImpl = new DefaultMQProducerImpl(this, rpcHook);
     }
 
@@ -244,13 +246,14 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
         this.producerGroup = producerGroup;
         defaultMQProducerImpl = new DefaultMQProducerImpl(this, rpcHook);
         //if client open the message trace feature
+        //开始了消息跟踪
         if (enableMsgTrace) {
             try {
                 AsyncTraceDispatcher dispatcher = new AsyncTraceDispatcher(customizedTraceTopic, rpcHook);
                 dispatcher.setHostProducer(this.getDefaultMQProducerImpl());
                 traceDispatcher = dispatcher;
-                this.getDefaultMQProducerImpl().registerSendMessageHook(
-                    new SendMessageTraceHookImpl(traceDispatcher));
+                //注册消息发送回调钩子
+                this.getDefaultMQProducerImpl().registerSendMessageHook(new SendMessageTraceHookImpl(traceDispatcher));
             } catch (Throwable e) {
                 log.error("system mqtrace hook init failed ,maybe can't send msg trace data");
             }

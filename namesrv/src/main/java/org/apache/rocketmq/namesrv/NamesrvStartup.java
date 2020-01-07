@@ -19,12 +19,14 @@ package org.apache.rocketmq.namesrv;
 import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.joran.JoranConfigurator;
 import ch.qos.logback.core.joran.spi.JoranException;
+
 import java.io.BufferedInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
 import java.util.concurrent.Callable;
+
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
@@ -82,31 +84,32 @@ public class NamesrvStartup {
         final NamesrvConfig namesrvConfig = new NamesrvConfig();
         final NettyServerConfig nettyServerConfig = new NettyServerConfig();
         nettyServerConfig.setListenPort(9876);
+        //如果指定了配置文件，加载配置文件
         if (commandLine.hasOption('c')) {
             String file = commandLine.getOptionValue('c');
             if (file != null) {
-                InputStream in = new BufferedInputStream(new FileInputStream(file));
-                properties = new Properties();
-                properties.load(in);
+                properties = load(file);
+                //填充属性
                 MixAll.properties2Object(properties, namesrvConfig);
+                //填充网络配置
                 MixAll.properties2Object(properties, nettyServerConfig);
-
+                //设置配置路径
                 namesrvConfig.setConfigStorePath(file);
-
                 System.out.printf("load config properties file OK, %s%n", file);
-                in.close();
             }
         }
 
+        //-p参数，用户测试启动，打印实际参数值
         if (commandLine.hasOption('p')) {
             InternalLogger console = InternalLoggerFactory.getLogger(LoggerName.NAMESRV_CONSOLE_NAME);
             MixAll.printObjectProperties(console, namesrvConfig);
             MixAll.printObjectProperties(console, nettyServerConfig);
             System.exit(0);
         }
-
+        //填充命令行配置的参数
         MixAll.properties2Object(ServerUtil.commandLine2Properties(commandLine), namesrvConfig);
 
+        //校验是否有设置home目录
         if (null == namesrvConfig.getRocketmqHome()) {
             System.out.printf("Please set the %s variable in your environment to match the location of the RocketMQ installation%n", MixAll.ROCKETMQ_HOME_ENV);
             System.exit(-2);
@@ -131,18 +134,26 @@ public class NamesrvStartup {
         return controller;
     }
 
-    public static NamesrvController start(final NamesrvController controller) throws Exception {
+    private static Properties load(String configFile) throws IOException {
+        Properties properties = new Properties();
+        try (InputStream in = new BufferedInputStream(new FileInputStream(configFile))) {
+            properties.load(in);
+        }
+        return properties;
+    }
 
+    public static NamesrvController start(final NamesrvController controller) throws Exception {
         if (null == controller) {
             throw new IllegalArgumentException("NamesrvController is null");
         }
-
+        //初始化
         boolean initResult = controller.initialize();
         if (!initResult) {
             controller.shutdown();
             System.exit(-3);
         }
 
+        //注册关闭钩子
         Runtime.getRuntime().addShutdownHook(new ShutdownHookThread(log, new Callable<Void>() {
             @Override
             public Void call() throws Exception {
@@ -150,9 +161,8 @@ public class NamesrvStartup {
                 return null;
             }
         }));
-
+        //启动服务
         controller.start();
-
         return controller;
     }
 

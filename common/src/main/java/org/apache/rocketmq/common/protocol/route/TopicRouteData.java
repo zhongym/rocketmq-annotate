@@ -23,14 +23,19 @@ package org.apache.rocketmq.common.protocol.route;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+
+import com.sun.corba.se.impl.naming.pcosnaming.NameServer;
 import org.apache.rocketmq.remoting.protocol.RemotingSerializable;
 
 public class TopicRouteData extends RemotingSerializable {
-    private String orderTopicConf;
-    private List<QueueData> queueDatas;
-    private List<BrokerData> brokerDatas;
-    private HashMap<String/* brokerAddr */, List<String>/* Filter Server */> filterServerTable;
 
+    private String orderTopicConf;
+    //topic队列信息
+    private List<QueueData> queueDatas;
+    //broker服务信息
+    private List<BrokerData> brokerDatas;
+    //过滤服务器
+    private HashMap<String/* brokerAddr */, List<String>/* Filter Server */> filterServerTable;
     public TopicRouteData cloneTopicRouteData() {
         TopicRouteData topicRouteData = new TopicRouteData();
         topicRouteData.setQueueDatas(new ArrayList<QueueData>());

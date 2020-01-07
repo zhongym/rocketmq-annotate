@@ -29,6 +29,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+
 import org.apache.commons.lang3.StringUtils;
 import org.apache.rocketmq.client.AccessChannel;
 import org.apache.rocketmq.client.common.ThreadLocalIndex;
@@ -51,18 +52,26 @@ import org.apache.rocketmq.remoting.RPCHook;
 
 import static org.apache.rocketmq.client.trace.TraceConstants.TRACE_INSTANCE_NAME;
 
+/**
+ * 异步的消息跟踪分派器
+ */
 public class AsyncTraceDispatcher implements TraceDispatcher {
 
     private final static InternalLogger log = ClientLogger.getLog();
     private final int queueSize;
     private final int batchSize;
     private final int maxMsgSize;
+    //用于发送 跟踪消息的生产者
     private final DefaultMQProducer traceProducer;
+    //异步提交线程池
     private final ThreadPoolExecutor traceExecutor;
     // The last discard number of log
     private AtomicLong discardCount;
+    //后台执行扫描队列线程
     private Thread worker;
+    //跟踪消息保存队列
     private ArrayBlockingQueue<TraceContext> traceContextQueue;
+    //异步提交线程池的队列
     private ArrayBlockingQueue<Runnable> appenderQueue;
     private volatile Thread shutDownHook;
     private volatile boolean stopped = false;
@@ -88,12 +97,12 @@ public class AsyncTraceDispatcher implements TraceDispatcher {
             this.traceTopicName = MixAll.RMQ_SYS_TRACE_TOPIC;
         }
         this.traceExecutor = new ThreadPoolExecutor(//
-            10, //
-            20, //
-            1000 * 60, //
-            TimeUnit.MILLISECONDS, //
-            this.appenderQueue, //
-            new ThreadFactoryImpl("MQTraceSendThread_"));
+                10, //
+                20, //
+                1000 * 60, //
+                TimeUnit.MILLISECONDS, //
+                this.appenderQueue, //
+                new ThreadFactoryImpl("MQTraceSendThread_"));
         traceProducer = getAndCreateTraceProducer(rpcHook);
     }
 
@@ -133,6 +142,7 @@ public class AsyncTraceDispatcher implements TraceDispatcher {
         this.hostConsumer = hostConsumer;
     }
 
+    @SuppressWarnings("all")
     public void start(String nameSrvAddr, AccessChannel accessChannel) throws MQClientException {
         if (isStarted.compareAndSet(false, true)) {
             traceProducer.setNamesrvAddr(nameSrvAddr);
@@ -140,6 +150,7 @@ public class AsyncTraceDispatcher implements TraceDispatcher {
             traceProducer.start();
         }
         this.accessChannel = accessChannel;
+        //后台线程异步从队列中取出 跟踪消息 执行
         this.worker = new Thread(new AsyncRunnable(), "MQ-AsyncTraceDispatcher-Thread-" + dispatcherId);
         this.worker.setDaemon(true);
         this.worker.start();
@@ -192,6 +203,10 @@ public class AsyncTraceDispatcher implements TraceDispatcher {
         this.removeShutdownHook();
     }
 
+    /**
+     * 注册关闭钩子，关闭应用时等待保存
+     */
+    @SuppressWarnings("all")
     public void registerShutDownHook() {
         if (shutDownHook == null) {
             shutDownHook = new Thread(new Runnable() {
@@ -341,7 +356,7 @@ public class AsyncTraceDispatcher implements TraceDispatcher {
          * Send message trace data
          *
          * @param keySet the keyset in this batch(including msgId in original message not offsetMsgId)
-         * @param data the message trace data in this batch
+         * @param data   the message trace data in this batch
          */
         private void sendTraceDataByMQ(Set<String> keySet, final String data, String dataTopic, String regionId) {
             String traceTopic = traceTopicName;

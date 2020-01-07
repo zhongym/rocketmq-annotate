@@ -387,6 +387,7 @@ public class BrokerController {
                 }
             }, 3, 3, TimeUnit.MINUTES);
 
+            //每隔1s打印各种队列的状态
             this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
                 @Override
                 public void run() {
@@ -399,7 +400,6 @@ public class BrokerController {
             }, 10, 1, TimeUnit.SECONDS);
 
             this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
-
                 @Override
                 public void run() {
                     try {
@@ -414,7 +414,7 @@ public class BrokerController {
                 this.brokerOuterAPI.updateNameServerAddressList(this.brokerConfig.getNamesrvAddr());
                 log.info("Set user specified name server address: {}", this.brokerConfig.getNamesrvAddr());
             } else if (this.brokerConfig.isFetchNamesrvAddrByAddressServer()) {
-                // 如果开启了从远程拉取名称服务器，定时拉取
+                // 如果开启了从远程拉取名称服务器，每隔2分钟定时拉取
                 this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
                     @Override
                     public void run() {
@@ -429,6 +429,7 @@ public class BrokerController {
 
             if (!messageStoreConfig.isEnableDLegerCommitLog()) {
                 if (BrokerRole.SLAVE == this.messageStoreConfig.getBrokerRole()) {
+                    //更新主结点的地址
                     if (this.messageStoreConfig.getHaMasterAddress() != null && this.messageStoreConfig.getHaMasterAddress().length() >= 6) {
                         this.messageStore.updateHaMasterAddress(this.messageStoreConfig.getHaMasterAddress());
                         this.updateMasterHAServerAddrPeriodically = false;
@@ -436,6 +437,7 @@ public class BrokerController {
                         this.updateMasterHAServerAddrPeriodically = true;
                     }
                 } else {
+                    //每隔60s打印 主从同步相差
                     this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
                         @Override
                         public void run() {
@@ -860,10 +862,12 @@ public class BrokerController {
     }
 
     public void start() throws Exception {
+        //启动消息存储引擎
         if (this.messageStore != null) {
             this.messageStore.start();
         }
 
+        //启动netty服务器
         if (this.remotingServer != null) {
             this.remotingServer.start();
         }
@@ -898,8 +902,8 @@ public class BrokerController {
             this.registerBrokerAll(true, false, true);
         }
 
+        //每隔30s,向集群中所有NameServer 发送心跳包
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
-
             @Override
             public void run() {
                 try {
@@ -942,13 +946,13 @@ public class BrokerController {
     public synchronized void registerBrokerAll(final boolean checkOrderConfig, boolean oneway, boolean forceRegister) {
         TopicConfigSerializeWrapper topicConfigWrapper = this.getTopicConfigManager().buildTopicConfigSerializeWrapper();
 
-        if (!PermName.isWriteable(this.getBrokerConfig().getBrokerPermission())
-                || !PermName.isReadable(this.getBrokerConfig().getBrokerPermission())) {
+        if (!PermName.isWriteable(this.getBrokerConfig().getBrokerPermission()) || !PermName.isReadable(this.getBrokerConfig().getBrokerPermission())) {
+            //从新组装传给nameServer的vo
             ConcurrentHashMap<String, TopicConfig> topicConfigTable = new ConcurrentHashMap<String, TopicConfig>();
             for (TopicConfig topicConfig : topicConfigWrapper.getTopicConfigTable().values()) {
-                TopicConfig tmp =
-                        new TopicConfig(topicConfig.getTopicName(), topicConfig.getReadQueueNums(), topicConfig.getWriteQueueNums(),
-                                this.brokerConfig.getBrokerPermission());
+                //传给nameServer的vo
+                TopicConfig tmp = new TopicConfig(topicConfig.getTopicName(), topicConfig.getReadQueueNums(), topicConfig.getWriteQueueNums(),
+                        this.brokerConfig.getBrokerPermission());
                 topicConfigTable.put(topicConfig.getTopicName(), tmp);
             }
             topicConfigWrapper.setTopicConfigTable(topicConfigTable);
@@ -993,6 +997,9 @@ public class BrokerController {
         }
     }
 
+    /**
+     * 调用nameServer判断是否需要注册
+     */
     private boolean needRegister(final String clusterName,
                                  final String brokerAddr,
                                  final String brokerName,

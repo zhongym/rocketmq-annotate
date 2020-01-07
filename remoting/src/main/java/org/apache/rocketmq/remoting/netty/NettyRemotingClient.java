@@ -105,23 +105,23 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
         this.nettyClientConfig = nettyClientConfig;
         this.channelEventListener = channelEventListener;
 
+        //公共线程池数量
         int publicThreadNums = nettyClientConfig.getClientCallbackExecutorThreads();
         if (publicThreadNums <= 0) {
             publicThreadNums = 4;
         }
-
+        //创建公共线程池
         this.publicExecutor = Executors.newFixedThreadPool(publicThreadNums, new ThreadFactory() {
             private AtomicInteger threadIndex = new AtomicInteger(0);
-
             @Override
             public Thread newThread(Runnable r) {
                 return new Thread(r, "NettyClientPublicExecutor_" + this.threadIndex.incrementAndGet());
             }
         });
 
+        //boss线程,处理connect整件
         this.eventLoopGroupWorker = new NioEventLoopGroup(1, new ThreadFactory() {
             private AtomicInteger threadIndex = new AtomicInteger(0);
-
             @Override
             public Thread newThread(Runnable r) {
                 return new Thread(r, String.format("NettyClientSelector_%d", this.threadIndex.incrementAndGet()));
@@ -149,6 +149,7 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
 
     @Override
     public void start() {
+        //默认线程，处理编码，心跳，连接管理，命令分发
         this.defaultEventExecutorGroup = new DefaultEventExecutorGroup(
             nettyClientConfig.getClientWorkerThreads(),
             new ThreadFactory() {
@@ -189,6 +190,7 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
                 }
             });
 
+        //定时处理返回值
         this.timer.scheduleAtFixedRate(new TimerTask() {
             @Override
             public void run() {

@@ -86,9 +86,19 @@ public class RequestCode {
 
     public static final int DELETE_KV_CONFIG = 102;
 
+    /**
+     * 向nameserver注册broker
+     */
     public static final int REGISTER_BROKER = 103;
 
+    /**
+     * 向nameserver注销broker
+     */
     public static final int UNREGISTER_BROKER = 104;
+
+    /**
+     * 根据topic名称拉取路由信息
+     */
     public static final int GET_ROUTEINTO_BY_TOPIC = 105;
 
     public static final int GET_BROKER_CLUSTER_INFO = 106;

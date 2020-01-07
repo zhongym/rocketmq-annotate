@@ -22,6 +22,10 @@ import org.apache.rocketmq.client.log.ClientLogger;
 import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.common.message.MessageQueue;
 
+/**
+ * MQ故障策略
+ * 用于选择队列
+ */
 public class MQFaultStrategy {
     private final static InternalLogger log = ClientLogger.getLog();
     private final LatencyFaultTolerance<String> latencyFaultTolerance = new LatencyFaultToleranceImpl();

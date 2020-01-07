@@ -17,6 +17,7 @@
 package org.apache.rocketmq.client.trace.hook;
 
 import java.util.ArrayList;
+
 import org.apache.rocketmq.client.hook.SendMessageContext;
 import org.apache.rocketmq.client.hook.SendMessageHook;
 import org.apache.rocketmq.client.producer.SendStatus;
@@ -27,6 +28,9 @@ import org.apache.rocketmq.client.trace.TraceDispatcher;
 import org.apache.rocketmq.client.trace.TraceType;
 import org.apache.rocketmq.common.protocol.NamespaceUtil;
 
+/**
+ * 消息跟踪钩子
+ */
 public class SendMessageTraceHookImpl implements SendMessageHook {
 
     private TraceDispatcher localDispatcher;
@@ -42,7 +46,7 @@ public class SendMessageTraceHookImpl implements SendMessageHook {
 
     @Override
     public void sendMessageBefore(SendMessageContext context) {
-        //if it is message trace data,then it doesn't recorded
+        //如果发送的topic名称是 跟踪topic名称，不记录
         if (context == null || context.getMessage().getTopic().startsWith(((AsyncTraceDispatcher) localDispatcher).getTraceTopicName())) {
             return;
         }
@@ -65,17 +69,18 @@ public class SendMessageTraceHookImpl implements SendMessageHook {
 
     @Override
     public void sendMessageAfter(SendMessageContext context) {
-        //if it is message trace data,then it doesn't recorded
+        //如果发送的topic名称是 跟踪topic名称，不记录
         if (context == null || context.getMessage().getTopic().startsWith(((AsyncTraceDispatcher) localDispatcher).getTraceTopicName())
-            || context.getMqTraceContext() == null) {
+                || context.getMqTraceContext() == null) {
             return;
         }
+        //没有发送结果，不处理
         if (context.getSendResult() == null) {
             return;
         }
 
         if (context.getSendResult().getRegionId() == null
-            || !context.getSendResult().isTraceOn()) {
+                || !context.getSendResult().isTraceOn()) {
             // if switch is false,skip it
             return;
         }
@@ -93,6 +98,7 @@ public class SendMessageTraceHookImpl implements SendMessageHook {
         traceBean.setMsgId(context.getSendResult().getMsgId());
         traceBean.setOffsetMsgId(context.getSendResult().getOffsetMsgId());
         traceBean.setStoreTime(tuxeContext.getTimeStamp() + costTime / 2);
+
         localDispatcher.append(tuxeContext);
     }
 }
