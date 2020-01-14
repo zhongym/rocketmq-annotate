@@ -46,8 +46,9 @@ public class TopicConfigManager extends ConfigManager {
     private static final long LOCK_TIMEOUT_MILLIS = 3000;
     private transient final Lock lockTopicConfigTable = new ReentrantLock();
 
-    private final ConcurrentMap<String, TopicConfig> topicConfigTable = new ConcurrentHashMap<String, TopicConfig>(1024);
+    private final ConcurrentMap<String/*topicName*/, TopicConfig> topicConfigTable = new ConcurrentHashMap<String, TopicConfig>(1024);
     private final DataVersion dataVersion = new DataVersion();
+    //系统topic列表
     private final Set<String> systemTopicList = new HashSet<String>();
     private transient BrokerController brokerController;
 
@@ -56,6 +57,8 @@ public class TopicConfigManager extends ConfigManager {
 
     public TopicConfigManager(BrokerController brokerController) {
         this.brokerController = brokerController;
+
+        //添加系统默认topic
         {
             // MixAll.SELF_TEST_TOPIC
             String topic = MixAll.SELF_TEST_TOPIC;
@@ -67,6 +70,11 @@ public class TopicConfigManager extends ConfigManager {
         }
         {
             // MixAll.AUTO_CREATE_TOPIC_KEY_TOPIC
+            //开启了自动创建topic, 添加一个默认的topic名称 “TBW102”
+            //客户端发送新的topic信息时，如果根据新的topic找不路由信息，就会根据 “TBW102” 查询路由信息
+            //如果broker开启了自动创建topic功能，就会返回一个默认的topic路由信息
+            //客户端就可以根据“TBW102”的路由信息发送消息，
+            //broker接收到消息发送命令后，判断topic是否存在，如果不存在，就会创建实际的topic配置
             if (this.brokerController.getBrokerConfig().isAutoCreateTopicEnable()) {
                 String topic = MixAll.AUTO_CREATE_TOPIC_KEY_TOPIC;
                 TopicConfig topicConfig = new TopicConfig(topic);
@@ -80,8 +88,9 @@ public class TopicConfigManager extends ConfigManager {
                 this.topicConfigTable.put(topicConfig.getTopicName(), topicConfig);
             }
         }
+
         {
-            // MixAll.BENCHMARK_TOPIC
+            //添加用于基准测试的topic
             String topic = MixAll.BENCHMARK_TOPIC;
             TopicConfig topicConfig = new TopicConfig(topic);
             this.systemTopicList.add(topic);
@@ -89,8 +98,9 @@ public class TopicConfigManager extends ConfigManager {
             topicConfig.setWriteQueueNums(1024);
             this.topicConfigTable.put(topicConfig.getTopicName(), topicConfig);
         }
-        {
 
+        {
+            //添加集群名称的topic
             String topic = this.brokerController.getBrokerConfig().getBrokerClusterName();
             TopicConfig topicConfig = new TopicConfig(topic);
             this.systemTopicList.add(topic);
@@ -101,6 +111,7 @@ public class TopicConfigManager extends ConfigManager {
             topicConfig.setPerm(perm);
             this.topicConfigTable.put(topicConfig.getTopicName(), topicConfig);
         }
+
         {
 
             String topic = this.brokerController.getBrokerConfig().getBrokerName();
@@ -160,8 +171,14 @@ public class TopicConfigManager extends ConfigManager {
         return this.topicConfigTable.get(topic);
     }
 
-    public TopicConfig createTopicInSendMessageMethod(final String topic, final String defaultTopic,
-                                                      final String remoteAddress, final int clientDefaultTopicQueueNums, final int topicSysFlag) {
+    /**
+     * 消息发送的时候同时创建topic
+     */
+    public TopicConfig createTopicInSendMessageMethod(final String topic,
+                                                      final String defaultTopic,
+                                                      final String remoteAddress,
+                                                      final int clientDefaultTopicQueueNums,
+                                                      final int topicSysFlag) {
         TopicConfig topicConfig = null;
         boolean createNew = false;
 
@@ -181,18 +198,19 @@ public class TopicConfigManager extends ConfigManager {
                         }
 
                         if (PermName.isInherited(defaultTopicConfig.getPerm())) {
+                            //创建新的topic
                             topicConfig = new TopicConfig(topic);
 
-                            int queueNums =
-                                    clientDefaultTopicQueueNums > defaultTopicConfig.getWriteQueueNums() ? defaultTopicConfig
-                                            .getWriteQueueNums() : clientDefaultTopicQueueNums;
-
+                            //队列数
+                            @SuppressWarnings("all")
+                            int queueNums = clientDefaultTopicQueueNums > defaultTopicConfig.getWriteQueueNums() ?
+                                    defaultTopicConfig.getWriteQueueNums() : clientDefaultTopicQueueNums;
                             if (queueNums < 0) {
                                 queueNums = 0;
                             }
-
                             topicConfig.setReadQueueNums(queueNums);
                             topicConfig.setWriteQueueNums(queueNums);
+                            //权限
                             int perm = defaultTopicConfig.getPerm();
                             perm &= ~PermName.PERM_INHERIT;
                             topicConfig.setPerm(perm);
@@ -210,13 +228,12 @@ public class TopicConfigManager extends ConfigManager {
                     if (topicConfig != null) {
                         log.info("Create new topic by default topic:[{}] config:[{}] producer:[{}]",
                                 defaultTopic, topicConfig, remoteAddress);
-
+                        //只在到map中
                         this.topicConfigTable.put(topic, topicConfig);
-
+                        //更新数据版本号
                         this.dataVersion.nextVersion();
-
                         createNew = true;
-
+                        //持久化
                         this.persist();
                     }
                 } finally {
@@ -227,6 +244,7 @@ public class TopicConfigManager extends ConfigManager {
             log.error("createTopicInSendMessageMethod exception", e);
         }
 
+        //创建了新的topic，同步到nameServer
         if (createNew) {
             this.brokerController.registerBrokerAll(false, true, true);
         }

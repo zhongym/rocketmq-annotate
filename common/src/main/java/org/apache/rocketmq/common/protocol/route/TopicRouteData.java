@@ -28,7 +28,7 @@ import com.sun.corba.se.impl.naming.pcosnaming.NameServer;
 import org.apache.rocketmq.remoting.protocol.RemotingSerializable;
 
 public class TopicRouteData extends RemotingSerializable {
-
+    //顺序消息配置
     private String orderTopicConf;
     //topic队列信息
     private List<QueueData> queueDatas;
