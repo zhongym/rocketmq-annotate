@@ -60,6 +60,7 @@ public class MQFaultStrategy {
     }
 
     public MessageQueue selectOneMessageQueue(final TopicPublishInfo tpInfo, final String lastBrokerName) {
+        //启用 Broker 故障延迟机制，
         if (this.sendLatencyFaultEnable) {
             try {
                 int index = tpInfo.getSendWhichQueue().getAndIncrement();
@@ -93,6 +94,7 @@ public class MQFaultStrategy {
             return tpInfo.selectOneMessageQueue();
         }
 
+        // 默认不启用 Broker 故障延迟机制
         return tpInfo.selectOneMessageQueue(lastBrokerName);
     }
 

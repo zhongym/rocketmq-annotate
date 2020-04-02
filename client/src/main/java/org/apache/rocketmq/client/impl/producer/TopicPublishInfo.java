@@ -72,6 +72,7 @@ public class TopicPublishInfo {
     }
 
     public MessageQueue selectOneMessageQueue(final String lastBrokerName) {
+        //上一次发送失败的brokerName为null,直接选择
         if (lastBrokerName == null) {
             return selectOneMessageQueue();
         } else {
@@ -81,6 +82,7 @@ public class TopicPublishInfo {
                 if (pos < 0)
                     pos = 0;
                 MessageQueue mq = this.messageQueueList.get(pos);
+                //根据算法算出的mq是上一次发送失败的broker，再次计算
                 if (!mq.getBrokerName().equals(lastBrokerName)) {
                     return mq;
                 }
