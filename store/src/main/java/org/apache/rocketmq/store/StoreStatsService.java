@@ -42,9 +42,10 @@ public class StoreStatsService extends ServiceThread {
     private static int printTPSInterval = 60 * 1;
 
     private final AtomicLong putMessageFailedTimes = new AtomicLong(0);
-
+    //topic发送消息总次数
     private final ConcurrentMap<String, AtomicLong> putMessageTopicTimesTotal =
         new ConcurrentHashMap<String, AtomicLong>(128);
+    //topic发送消息总大小
     private final ConcurrentMap<String, AtomicLong> putMessageTopicSizeTotal =
         new ConcurrentHashMap<String, AtomicLong>(128);
 

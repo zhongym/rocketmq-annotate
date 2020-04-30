@@ -34,16 +34,17 @@ public class MappedFileQueue {
     private static final InternalLogger LOG_ERROR = InternalLoggerFactory.getLogger(LoggerName.STORE_ERROR_LOGGER_NAME);
 
     private static final int DELETE_FILES_BATCH_MAX = 10;
-
+    //存储目录
     private final String storePath;
-
+    //单个文件的存储大小
     private final int mappedFileSize;
-
+    //文件集合
     private final CopyOnWriteArrayList<MappedFile> mappedFiles = new CopyOnWriteArrayList<MappedFile>();
-
+    //创建MappedFile文件的服务类
     private final AllocateMappedFileService allocateMappedFileService;
-
+    //当前刷盘指针
     private long flushedWhere = 0;
+    //当前提交指针
     private long committedWhere = 0;
 
     private volatile long storeTimestamp = 0;
@@ -74,19 +75,22 @@ public class MappedFileQueue {
         }
     }
 
+    /**
+     * 根据消息存储时间戳来查找 MappdFile
+     */
     public MappedFile getMappedFileByTime(final long timestamp) {
         Object[] mfs = this.copyMappedFiles(0);
 
         if (null == mfs)
             return null;
-
+        //从 列表中第一个文件开始查找，
         for (int i = 0; i < mfs.length; i++) {
             MappedFile mappedFile = (MappedFile) mfs[i];
+            //找到第一个最后一次更新时间大于待查找时间戳的文件
             if (mappedFile.getLastModifiedTimestamp() >= timestamp) {
                 return mappedFile;
             }
         }
-
         return (MappedFile) mfs[mfs.length - 1];
     }
 
@@ -191,6 +195,9 @@ public class MappedFileQueue {
         return 0;
     }
 
+    /**
+     * 根据消息偏移量 offset 查找 mappedFile
+     */
     public MappedFile getLastMappedFile(final long startOffset, boolean needCreate) {
         long createOffset = -1;
         MappedFile mappedFileLast = getLastMappedFile();
@@ -285,6 +292,10 @@ public class MappedFileQueue {
         return true;
     }
 
+    /**
+     * 获取存储文件最小偏移值，
+     * @return
+     */
     public long getMinOffset() {
 
         if (!this.mappedFiles.isEmpty()) {
@@ -299,6 +310,10 @@ public class MappedFileQueue {
         return -1;
     }
 
+    /**
+     * 获取存储文件最大的偏移值
+     * @return
+     */
     public long getMaxOffset() {
         MappedFile mappedFile = getLastMappedFile();
         if (mappedFile != null) {
@@ -307,6 +322,10 @@ public class MappedFileQueue {
         return 0;
     }
 
+    /**
+     * 获取最大写位置
+     * @return
+     */
     public long getMaxWrotePosition() {
         MappedFile mappedFile = getLastMappedFile();
         if (mappedFile != null) {
@@ -422,11 +441,18 @@ public class MappedFileQueue {
         return deleteCount;
     }
 
+    /**
+     * 刷盘，将数据保存到磁盘
+     * @param flushLeastPages
+     * @return
+     */
     public boolean flush(final int flushLeastPages) {
         boolean result = true;
+        //通过偏移量查找映射文件
         MappedFile mappedFile = this.findMappedFileByOffset(this.flushedWhere, this.flushedWhere == 0);
         if (mappedFile != null) {
             long tmpTimeStamp = mappedFile.getStoreTimestamp();
+            //调用文件的刷盘方法
             int offset = mappedFile.flush(flushLeastPages);
             long where = mappedFile.getFileFromOffset() + offset;
             result = where == this.flushedWhere;
@@ -453,7 +479,7 @@ public class MappedFileQueue {
     }
 
     /**
-     * Finds a mapped file by offset.
+     * 通过偏移量查找映射文件.
      *
      * @param offset Offset.
      * @param returnFirstOnNotFound If the mapped file is not found, then return the first one.

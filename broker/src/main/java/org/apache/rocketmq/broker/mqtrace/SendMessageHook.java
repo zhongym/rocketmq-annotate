@@ -16,10 +16,26 @@
  */
 package org.apache.rocketmq.broker.mqtrace;
 
+/**
+ * 发送消息回调钩子
+ */
 public interface SendMessageHook {
-    public String hookName();
+    /**
+     * 名称
+     */
+    String hookName();
 
-    public void sendMessageBefore(final SendMessageContext context);
+    /**
+     * 消息发送前执行
+     *
+     * @param context
+     */
+    void sendMessageBefore(final SendMessageContext context);
 
-    public void sendMessageAfter(final SendMessageContext context);
+    /**
+     * 消息发送后执行
+     *
+     * @param context
+     */
+    void sendMessageAfter(final SendMessageContext context);
 }

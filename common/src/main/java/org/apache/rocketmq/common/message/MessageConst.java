@@ -24,8 +24,17 @@ public class MessageConst {
     public static final String PROPERTY_WAIT_STORE_MSG_OK = "WAIT";
     public static final String PROPERTY_DELAY_TIME_LEVEL = "DELAY";
     public static final String PROPERTY_RETRY_TOPIC = "RETRY_TOPIC";
+    /**
+     * 真实的topic
+     */
     public static final String PROPERTY_REAL_TOPIC = "REAL_TOPIC";
+    /**
+     * 真实的队列id
+     */
     public static final String PROPERTY_REAL_QUEUE_ID = "REAL_QID";
+    /**
+     * 事务消息标记
+     */
     public static final String PROPERTY_TRANSACTION_PREPARED = "TRAN_MSG";
     public static final String PROPERTY_PRODUCER_GROUP = "PGROUP";
     public static final String PROPERTY_MIN_OFFSET = "MIN_OFFSET";

@@ -113,6 +113,9 @@ public class BrokerOuterAPI {
         this.remotingClient.updateNameServerAddressList(lst);
     }
 
+    /**
+     * 注册到所有nameServer
+     */
     public List<RegisterBrokerResult> registerBrokerAll(
             final String clusterName,
             final String brokerAddr,
@@ -137,13 +140,17 @@ public class BrokerOuterAPI {
             requestHeader.setHaServerAddr(haServerAddr);
             requestHeader.setCompressed(compressed);
 
+            //请求body
             RegisterBrokerBody requestBody = new RegisterBrokerBody();
             requestBody.setTopicConfigSerializeWrapper(topicConfigWrapper);
             requestBody.setFilterServerList(filterServerList);
+            //压缩成字节数组
             final byte[] body = requestBody.encode(compressed);
             final int bodyCrc32 = UtilAll.crc32(body);
             requestHeader.setBodyCrc32(bodyCrc32);
             final CountDownLatch countDownLatch = new CountDownLatch(nameServerAddressList.size());
+
+            //多线程并发，将topic配置同步到每台名称服务器
             for (final String namesrvAddr : nameServerAddressList) {
                 brokerOuterExecutor.execute(new Runnable() {
                     @Override
@@ -164,9 +171,11 @@ public class BrokerOuterAPI {
                 });
             }
 
+            //等待所有线程完成
             try {
                 countDownLatch.await(timeoutMills, TimeUnit.MILLISECONDS);
             } catch (InterruptedException e) {
+                log.error("registerBroker Exception", e);
             }
         }
 

@@ -21,34 +21,34 @@ import org.apache.rocketmq.common.annotation.ImportantField;
 import org.apache.rocketmq.store.ConsumeQueue;
 
 public class MessageStoreConfig {
-    //The root directory in which the log data is kept
+    //保留日志数据的根目录
     @ImportantField
     private String storePathRootDir = System.getProperty("user.home") + File.separator + "store";
 
-    //The directory in which the commitlog is kept
+    //提交日志所在的目录
     @ImportantField
     private String storePathCommitLog = System.getProperty("user.home") + File.separator + "store"
         + File.separator + "commitlog";
 
-    // CommitLog file size,default is 1G
+    // CommitLog文件大小，默认为1G
     private int mappedFileSizeCommitLog = 1024 * 1024 * 1024;
-    // ConsumeQueue file size,default is 30W
+    // ConsumeQueue文件大小，默认为30W
     private int mappedFileSizeConsumeQueue = 300000 * ConsumeQueue.CQ_STORE_UNIT_SIZE;
-    // enable consume queue ext
+    //启用消耗队列扩展
     private boolean enableConsumeQueueExt = false;
-    // ConsumeQueue extend file size, 48M
+    // ConsumeQueue扩展文件大小，48M
     private int mappedFileSizeConsumeQueueExt = 48 * 1024 * 1024;
     // Bit count of filter bit map.
     // this will be set by pipe of calculate filter bit map.
     private int bitMapLengthConsumeQueueExt = 64;
 
-    // CommitLog flush interval
-    // flush data to disk
+   // CommitLog刷新间隔
+   //将数据刷新到磁盘
     @ImportantField
     private int flushIntervalCommitLog = 500;
 
-    // Only used if TransientStorePool enabled
-    // flush data to FileChannel
+    // 仅在启用TransientStorePool的情况下使用
+    // 将数据刷新到FileChannel
     @ImportantField
     private int commitIntervalCommitLog = 200;
 
@@ -58,24 +58,24 @@ public class MessageStoreConfig {
      */
     private boolean useReentrantLockWhenPutMessage = false;
 
-    // Whether schedule flush,default is real-time
+    // 是否刷新计划，默认为实时
     @ImportantField
     private boolean flushCommitLogTimed = false;
-    // ConsumeQueue flush interval
+    // ConsumeQueue刷新间隔
     private int flushIntervalConsumeQueue = 1000;
-    // Resource reclaim interval
+    //资源回收间隔
     private int cleanResourceInterval = 10000;
-    // CommitLog removal interval
+    // CommitLog删除间隔
     private int deleteCommitLogFilesInterval = 100;
-    // ConsumeQueue removal interval
+    // ConsumeQueue移除间隔
     private int deleteConsumeQueueFilesInterval = 100;
     private int destroyMapedFileIntervalForcibly = 1000 * 120;
     private int redeleteHangedFileInterval = 1000 * 120;
-    // When to delete,default is at 4 am
+    // 何时删除，默认为凌晨4点
     @ImportantField
     private String deleteWhen = "04";
     private int diskMaxUsedSpaceRatio = 75;
-    // The number of hours to keep a log file before deleting it (in hours)
+    // 删除日志文件前保留日志的小时数（小时）
     @ImportantField
     private int fileReservedTime = 72;
     // Flow control for ConsumeQueue

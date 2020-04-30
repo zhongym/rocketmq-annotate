@@ -111,7 +111,7 @@ public class RemotingCommand {
     }
 
     public static RemotingCommand createResponseCommand(int code, String remark,
-        Class<? extends CommandCustomHeader> classHeader) {
+                                                        Class<? extends CommandCustomHeader> classHeader) {
         RemotingCommand cmd = new RemotingCommand();
         cmd.markResponseType();
         cmd.setCode(code);
@@ -120,15 +120,12 @@ public class RemotingCommand {
 
         if (classHeader != null) {
             try {
-                CommandCustomHeader objectHeader = classHeader.newInstance();
-                cmd.customHeader = objectHeader;
-            } catch (InstantiationException e) {
-                return null;
-            } catch (IllegalAccessException e) {
+                //自定义头
+                cmd.customHeader = classHeader.newInstance();
+            } catch (InstantiationException | IllegalAccessException e) {
                 return null;
             }
         }
-
         return cmd;
     }
 
@@ -231,14 +228,16 @@ public class RemotingCommand {
         this.customHeader = customHeader;
     }
 
+    /**
+     * 解码成自定义头类型
+     */
     public CommandCustomHeader decodeCommandCustomHeader(
         Class<? extends CommandCustomHeader> classHeader) throws RemotingCommandException {
         CommandCustomHeader objectHeader;
         try {
             objectHeader = classHeader.newInstance();
-        } catch (InstantiationException e) {
-            return null;
-        } catch (IllegalAccessException e) {
+        } catch (InstantiationException | IllegalAccessException e) {
+            log.error("创建实例错误class:{},ex:{}", classHeader, e);
             return null;
         }
 

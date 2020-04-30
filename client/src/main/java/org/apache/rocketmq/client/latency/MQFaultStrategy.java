@@ -74,9 +74,12 @@ public class MQFaultStrategy {
                             return mq;
                     }
                 }
+                //全部broker都加到故障列表的情况
 
+                //从故障列表中获取最好的一个
                 final String notBestBroker = latencyFaultTolerance.pickOneAtLeast();
                 int writeQueueNums = tpInfo.getQueueIdByBroker(notBestBroker);
+                //如果从故障列表中选择的最好一个可用，直接返回
                 if (writeQueueNums > 0) {
                     final MessageQueue mq = tpInfo.selectOneMessageQueue();
                     if (notBestBroker != null) {

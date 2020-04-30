@@ -97,6 +97,24 @@ import org.apache.rocketmq.remoting.exception.RemotingTooMuchRequestException;
 
 /**
  * 默认的mq实现
+ * <p>
+ * 1 ）消息生产者启动流程
+ * 重点理解 MQClientlnstance 、消息生产者之间的关系
+ *
+ * 2）消息队列负载机制
+ * 消息生产者在发送消息时，如果本地路由表中未缓存 topi 的路由信息，向 Name
+ * Server 发送获取路由信息请求，更新本地路由信息表，并且消息生产者每隔 30s NameServer
+ * 更新路由表
+ *
+ * 3 ）消息发送异常机制
+ * 消息发送高可用主要通过两个手段 重试与 Broker 规避 Brok 规避就是在一次消息
+ * 发送过程中发现错误，在某一时间段内，消息生产者不会选择该 Broker（消息服务器）上的
+ * 消息队列，提高发送消息的成功
+ *
+ * 4）批量消息发送
+ * RocketMQ 支持将同一主题下 多条消息一次性发送到消息服务端
+ * 本章在讨论消息发送流程 并没有深入去跟踪消息是如何存储在消息服务器上的，下
+ * 一章将重点讲解 RocketMQ 消息存储机制
  */
 @SuppressWarnings("all")
 public class DefaultMQProducerImpl implements MQProducerInner {
@@ -163,6 +181,9 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                 checkForbiddenHookList.size());
     }
 
+    /**
+     * 初始化事务消息环境
+     */
     public void initTransactionEnv() {
         TransactionMQProducer producer = (TransactionMQProducer) this.defaultMQProducer;
         if (producer.getExecutorService() != null) {
@@ -751,7 +772,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
      *
      * @param msg               需要发送的mq信息
      * @param mq                topic对应的队列
-     * @param communicationMode 发诙模式
+     * @param communicationMode 发送模式 SYNC ASYNC ONEWAY
      * @param sendCallback      回调操作
      * @param topicPublishInfo  topic信息
      * @param timeout           超时时间
@@ -781,7 +802,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
 
             byte[] prevBody = msg.getBody();
             try {
-                //for MessageBatch,ID has been set in the generating process
+                //生成全局消息id
                 if (!(msg instanceof MessageBatch)) {
                     MessageClientIDSetter.setUniqID(msg);
                 }
@@ -792,7 +813,9 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                     topicWithNamespace = true;
                 }
 
+                //消息标记
                 int sysFlag = 0;
+                //压缩消息体
                 boolean msgBodyCompressed = false;
                 if (this.tryToCompressMessage(msg)) {
                     sysFlag |= MessageSysFlag.COMPRESSED_FLAG;
@@ -803,6 +826,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                 if (tranMsg != null && Boolean.parseBoolean(tranMsg)) {
                     sysFlag |= MessageSysFlag.TRANSACTION_PREPARED_TYPE;
                 }
+
 
                 if (hasCheckForbiddenHook()) {
                     CheckForbiddenContext checkForbiddenContext = new CheckForbiddenContext();
@@ -817,6 +841,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                 }
 
                 //执行消息发送前回调钩子
+                //通过 DefaultMQProducerlmpl registerSendMessageHook 注册钩子处理类，并且可以注册多个
                 if (this.hasSendMessageHook()) {
                     context = new SendMessageContext();
                     context.setProducer(this);
@@ -838,19 +863,32 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                     this.executeSendMessageHookBefore(context);
                 }
 
+                //构建消息发送请求 性 、消息重试次数、是否是批量消息
                 SendMessageRequestHeader requestHeader = new SendMessageRequestHeader();
+                //生产者组
                 requestHeader.setProducerGroup(this.defaultMQProducer.getProducerGroup());
+                //主题名称
                 requestHeader.setTopic(msg.getTopic());
+                //默认创建主题 Key
                 requestHeader.setDefaultTopic(this.defaultMQProducer.getCreateTopicKey());
+                //该主题在单个 Broker 默认 队列数
                 requestHeader.setDefaultTopicQueueNums(this.defaultMQProducer.getDefaultTopicQueueNums());
+                //队列ID （队列序号）
                 requestHeader.setQueueId(mq.getQueueId());
+                //消息系统标识
                 requestHeader.setSysFlag(sysFlag);
+                //消息发送时间
                 requestHeader.setBornTimestamp(System.currentTimeMillis());
+                //消息标记
                 requestHeader.setFlag(msg.getFlag());
+                //消息扩展属性
                 requestHeader.setProperties(MessageDecoder.messageProperties2String(msg.getProperties()));
+                //消息重试次数
                 requestHeader.setReconsumeTimes(0);
                 requestHeader.setUnitMode(this.isUnitMode());
+                //是否是批量消息
                 requestHeader.setBatch(msg instanceof MessageBatch);
+                //重试消息处理
                 if (requestHeader.getTopic().startsWith(MixAll.RETRY_GROUP_TOPIC_PREFIX)) {
                     String reconsumeTimes = MessageAccessor.getReconsumeTime(msg);
                     if (reconsumeTimes != null) {

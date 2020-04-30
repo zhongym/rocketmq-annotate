@@ -183,11 +183,13 @@ public class TopicConfigManager extends ConfigManager {
         boolean createNew = false;
 
         try {
+            //加锁
             if (this.lockTopicConfigTable.tryLock(LOCK_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)) {
                 try {
                     topicConfig = this.topicConfigTable.get(topic);
-                    if (topicConfig != null)
+                    if (topicConfig != null) {
                         return topicConfig;
+                    }
 
                     TopicConfig defaultTopicConfig = this.topicConfigTable.get(defaultTopic);
                     if (defaultTopicConfig != null) {
@@ -252,24 +254,29 @@ public class TopicConfigManager extends ConfigManager {
         return topicConfig;
     }
 
+    /**
+     * 消息发送的时候同时创建topic
+     */
     public TopicConfig createTopicInSendMessageBackMethod(
             final String topic,
             final int clientDefaultTopicQueueNums,
             final int perm,
             final int topicSysFlag) {
         TopicConfig topicConfig = this.topicConfigTable.get(topic);
-        if (topicConfig != null)
+        if (topicConfig != null) {
             return topicConfig;
+        }
 
         boolean createNew = false;
-
         try {
+            //加锁
             if (this.lockTopicConfigTable.tryLock(LOCK_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)) {
                 try {
                     topicConfig = this.topicConfigTable.get(topic);
-                    if (topicConfig != null)
+                    if (topicConfig != null) {
                         return topicConfig;
-
+                    }
+                    //创建配置
                     topicConfig = new TopicConfig(topic);
                     topicConfig.setReadQueueNums(clientDefaultTopicQueueNums);
                     topicConfig.setWriteQueueNums(clientDefaultTopicQueueNums);
@@ -280,6 +287,7 @@ public class TopicConfigManager extends ConfigManager {
                     this.topicConfigTable.put(topic, topicConfig);
                     createNew = true;
                     this.dataVersion.nextVersion();
+                    //持久化配置
                     this.persist();
                 } finally {
                     this.lockTopicConfigTable.unlock();
@@ -289,6 +297,7 @@ public class TopicConfigManager extends ConfigManager {
             log.error("createTopicInSendMessageBackMethod exception", e);
         }
 
+        //同步topic配置到 同步到nameServer
         if (createNew) {
             this.brokerController.registerBrokerAll(false, true, true);
         }
