@@ -90,8 +90,9 @@ public class ConsumeQueue {
         if (!mappedFiles.isEmpty()) {
 
             int index = mappedFiles.size() - 3;
-            if (index < 0)
+            if (index < 0) {
                 index = 0;
+            }
 
             int mappedFileSizeLogics = this.mappedFileSize;
             MappedFile mappedFile = mappedFiles.get(index);
@@ -152,6 +153,9 @@ public class ConsumeQueue {
         }
     }
 
+    /**
+     * 根据消息存储时间来查找消息偏移值
+     */
     public long getOffsetInQueueByTime(final long timestamp) {
         MappedFile mappedFile = this.mappedFileQueue.getMappedFileByTime(timestamp);
         if (mappedFile != null) {
@@ -300,8 +304,9 @@ public class ConsumeQueue {
         if (mappedFile != null) {
 
             int position = mappedFile.getWrotePosition() - CQ_STORE_UNIT_SIZE;
-            if (position < 0)
+            if (position < 0) {
                 position = 0;
+            }
 
             ByteBuffer byteBuffer = mappedFile.sliceByteBuffer();
             byteBuffer.position(position);
@@ -488,6 +493,9 @@ public class ConsumeQueue {
         }
     }
 
+    /**
+     * 根据消息逻辑偏移量消息的实现
+     */
     public SelectMappedBufferResult getIndexBuffer(final long startIndex) {
         int mappedFileSize = this.mappedFileSize;
         long offset = startIndex * CQ_STORE_UNIT_SIZE;
