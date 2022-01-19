@@ -37,6 +37,7 @@ import org.apache.rocketmq.common.protocol.header.UpdateConsumerOffsetRequestHea
 import org.apache.rocketmq.remoting.exception.RemotingException;
 
 /**
+ * 集群消费者消息进度
  * Remote storage implementation
  */
 public class RemoteBrokerOffsetStore implements OffsetStore {
