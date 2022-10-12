@@ -586,7 +586,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
     }
 
     /**
-     * 消息发送流程主要的步骤：验证消息、查找路由、消息发送（包含异常处理机制）
+     * 消息发送流程主要的步骤：验证消息、查找路由、选择队列、消息发送（包含异常处理机制）
      */
     private SendResult sendDefaultImpl(
             Message msg,

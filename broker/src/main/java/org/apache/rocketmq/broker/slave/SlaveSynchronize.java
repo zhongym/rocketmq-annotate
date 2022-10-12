@@ -45,10 +45,17 @@ public class SlaveSynchronize {
         this.masterAddr = masterAddr;
     }
 
+    /**
+     * 每隔10s中执行从节点同步器
+     */
     public void syncAll() {
+        // 从主节点同步topic配置
         this.syncTopicConfig();
+        // 从主节点同步消息者消费进度
         this.syncConsumerOffset();
+        // 从主节点同步延迟消息等级配置
         this.syncDelayOffset();
+        // 从主节点同步消费组配置信息
         this.syncSubscriptionGroupConfig();
     }
 

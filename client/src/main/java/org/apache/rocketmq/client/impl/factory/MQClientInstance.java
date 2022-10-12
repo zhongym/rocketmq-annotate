@@ -255,19 +255,19 @@ public class MQClientInstance {
             switch (this.serviceState) {
                 case CREATE_JUST:
                     this.serviceState = ServiceState.START_FAILED;
-                    // If not specified,looking address from name server
+                    // 如果未指定，则从名称服务器查找地址
                     if (null == this.clientConfig.getNamesrvAddr()) {
                         this.mQClientAPIImpl.fetchNameServerAddr();
                     }
-                    // Start request-response channel
+                    // 启动netty
                     this.mQClientAPIImpl.start();
-                    // Start various schedule tasks
+                    // 启动各种 定时任务
                     this.startScheduledTask();
-                    // Start pull service
+                    // 启动拉取消息服务任务
                     this.pullMessageService.start();
-                    // Start rebalance service
+                    // 启动再平衡服务任务
                     this.rebalanceService.start();
-                    // Start push service
+                    // 启动默认生产者实现
                     this.defaultMQProducer.getDefaultMQProducerImpl().start(false);
                     log.info("the client factory [{}] start OK", this.clientId);
                     this.serviceState = ServiceState.RUNNING;
@@ -322,6 +322,7 @@ public class MQClientInstance {
             }
         }, 1000, this.clientConfig.getHeartbeatBrokerInterval(), TimeUnit.MILLISECONDS);
 
+        //每隔5s，持久化消息偏移量
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
             @Override
@@ -334,6 +335,7 @@ public class MQClientInstance {
             }
         }, 1000 * 10, this.clientConfig.getPersistConsumerOffsetInterval(), TimeUnit.MILLISECONDS);
 
+        // 已废弃，每隔1分钟动态调整线程池
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
             @Override
@@ -356,10 +358,7 @@ public class MQClientInstance {
 
         // Consumer
         {
-            Iterator<Entry<String, MQConsumerInner>> it = this.consumerTable.entrySet().iterator();
-            while (it.hasNext()) {
-                Entry<String, MQConsumerInner> entry = it.next();
-                MQConsumerInner impl = entry.getValue();
+            consumerTable.forEach((group, impl) -> {
                 if (impl != null) {
                     Set<SubscriptionData> subList = impl.subscriptions();
                     if (subList != null) {
@@ -368,22 +367,20 @@ public class MQClientInstance {
                         }
                     }
                 }
-            }
+            });
         }
 
         // Producer
         {
-            Iterator<Entry<String, MQProducerInner>> it = this.producerTable.entrySet().iterator();
-            while (it.hasNext()) {
-                Entry<String, MQProducerInner> entry = it.next();
-                MQProducerInner impl = entry.getValue();
+            producerTable.forEach((group, impl) -> {
                 if (impl != null) {
                     Set<String> lst = impl.getPublishTopicList();
                     topicList.addAll(lst);
                 }
-            }
+            });
         }
 
+        //获取所有生产者，消费者涉及的topic，拉取topic路由信息
         for (String topic : topicList) {
             this.updateTopicRouteInfoFromNameServer(topic);
         }

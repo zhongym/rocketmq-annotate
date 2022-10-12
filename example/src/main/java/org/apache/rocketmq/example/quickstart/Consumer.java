@@ -16,12 +16,14 @@
  */
 package org.apache.rocketmq.example.quickstart;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
+
 import org.apache.rocketmq.client.consumer.DefaultMQPushConsumer;
-import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyContext;
-import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyStatus;
-import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
+import org.apache.rocketmq.client.consumer.listener.*;
 import org.apache.rocketmq.client.exception.MQClientException;
+import org.apache.rocketmq.client.log.ClientLogger;
 import org.apache.rocketmq.common.consumer.ConsumeFromWhere;
 import org.apache.rocketmq.common.message.MessageExt;
 
@@ -31,13 +33,15 @@ import org.apache.rocketmq.common.message.MessageExt;
 public class Consumer {
 
     public static void main(String[] args) throws InterruptedException, MQClientException {
+        System.setProperty(ClientLogger.CLIENT_LOG_USESLF4J,"true");
 
         /*
          * Instantiate with specified consumer group name.
          */
-        DefaultMQPushConsumer consumer = new DefaultMQPushConsumer("please_rename_unique_group_name_4");
-        consumer.setNamesrvAddr ("127.0.0.1:9876");
-        consumer.setConsumeThreadMax(10);
+        DefaultMQPushConsumer consumer = new DefaultMQPushConsumer("group1");
+        consumer.setNamesrvAddr("127.0.0.1:9876");
+        consumer.setMaxReconsumeTimes(19);
+//        consumer.setConsumeThreadMax(10);
         /*
          * Specify name server addresses.
          * <p/>
@@ -53,12 +57,12 @@ public class Consumer {
         /*
          * Specify where to start in case the specified consumer group is a brand new one.
          */
-        consumer.setConsumeFromWhere(ConsumeFromWhere.CONSUME_FROM_FIRST_OFFSET);
+//        consumer.setConsumeFromWhere(ConsumeFromWhere.CONSUME_FROM_FIRST_OFFSET);
 
         /*
          * Subscribe one more more topics to consume.
          */
-        consumer.subscribe("TopicTest", "*");
+        consumer.subscribe("TopicB", "taga");
 
         /*
          *  Register callback to execute on arrival of messages fetched from brokers.
@@ -67,8 +71,23 @@ public class Consumer {
 
             @Override
             public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs,
-                ConsumeConcurrentlyContext context) {
-                System.out.printf("%s Receive New Messages: %s %n", Thread.currentThread().getName(), msgs);
+                                                            ConsumeConcurrentlyContext context) {
+
+                MessageExt messageExt = msgs.get(0);
+                System.out.println("===============> 开始消息：" + new String(messageExt.getBody()));
+                System.out.println("===============> tag：" + messageExt.getTags());
+//                System.out.println("消费内容：" + new String(messageExt.getBody()));
+//                System.out.println("重试次数：" + messageExt.getReconsumeTimes());
+//                if ("第2条消息".equals(new String(messageExt.getBody()))) {
+//                    System.out.println("慢消息消费中：" + new String(messageExt.getBody()));
+//                    try {
+//                        Thread.sleep(15000);
+//                    } catch (InterruptedException e) {
+//                        throw new RuntimeException(e);
+//                    }
+//                }
+//                System.out.println("消费完成：" + new String(messageExt.getBody()));
+//                System.out.printf("%s Receive New Messages: %s %n", Thread.currentThread().getName(), msgs);
                 return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
             }
         });

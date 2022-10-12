@@ -16,17 +16,25 @@
  */
 package org.apache.rocketmq.example.quickstart;
 
+import org.apache.rocketmq.client.exception.MQBrokerException;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
+import org.apache.rocketmq.client.producer.MessageQueueSelector;
+import org.apache.rocketmq.client.producer.SendCallback;
 import org.apache.rocketmq.client.producer.SendResult;
 import org.apache.rocketmq.common.message.Message;
+import org.apache.rocketmq.common.message.MessageQueue;
 import org.apache.rocketmq.remoting.common.RemotingHelper;
+import org.apache.rocketmq.remoting.exception.RemotingException;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * This class demonstrates how to send messages to brokers using provided {@link DefaultMQProducer}.
  */
 public class Producer {
-    public static void main(String[] args) throws MQClientException, InterruptedException {
+    public static void main(String[] args) throws MQClientException, InterruptedException, MQBrokerException, RemotingException {
 
         /*
          * Instantiate with a producer group name.
@@ -50,22 +58,44 @@ public class Producer {
          */
         producer.start();
 
+        //同步发送
+        producer.send(new Message());
+        //异步发送
+        producer.send(new Message(), new SendCallback() {
+            @Override
+            public void onSuccess(SendResult sendResult) {
+            }
+            @Override
+            public void onException(Throwable e) {
 
-        for (int i = 0; i < 1; i++) {
+            }
+        });
+        //单向（oneway）
+        producer.sendOneway(new Message());
+
+        producer.send(new ArrayList<>());
+
+        for (int i = 1; i < 2; i++) {
             try {
 
                 /*
                  * Create a message instance, specifying topic, tag and message body.
                  */
-                Message msg = new Message("TopicTest" /* Topic */,
-                    "TagA" /* Tag */,
-                    ("Hello RocketMQ " + i).getBytes(RemotingHelper.DEFAULT_CHARSET) /* Message body */
+                Message msg = new Message("TopicB" /* Topic */,
+                    "taga" /* Tag */,
+                        ("第" + i + "条消息").getBytes(RemotingHelper.DEFAULT_CHARSET) /* Message body */
                 );
 
                 /*
                  * Call send message to deliver message to one of brokers.
                  */
-                SendResult sendResult = producer.send(msg);
+                SendResult sendResult = producer.send(msg, new MessageQueueSelector(){
+
+                    @Override
+                    public MessageQueue select(List<MessageQueue> mqs, Message msg, Object arg) {
+                        return mqs.get(1);
+                    }
+                },null);
 
                 System.out.printf("%s%n", sendResult);
             } catch (Exception e) {
@@ -78,5 +108,7 @@ public class Producer {
          * Shut down once the producer instance is not longer in use.
          */
         producer.shutdown();
+
+        Thread.sleep(10000);
     }
 }

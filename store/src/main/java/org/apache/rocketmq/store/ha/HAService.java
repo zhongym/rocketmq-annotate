@@ -457,6 +457,7 @@ public class HAService {
                         this.byteBufferRead.position(this.dispatchPosition + msgHeaderSize);
                         this.byteBufferRead.get(bodyData);
 
+                        // 保存消息到commitLog
                         HAService.this.defaultMessageStore.appendToCommitLog(masterPhyOffset, bodyData);
 
                         this.byteBufferRead.position(readSocketPos);
@@ -561,11 +562,13 @@ public class HAService {
 
                         this.selector.select(1000);
 
+                        //
                         boolean ok = this.processReadEvent();
                         if (!ok) {
                             this.closeMaster();
                         }
 
+                        // 向主节点上报最新的拉取偏移量
                         if (!reportSlaveMaxOffsetPlus()) {
                             continue;
                         }

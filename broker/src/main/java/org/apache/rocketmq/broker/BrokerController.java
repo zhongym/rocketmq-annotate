@@ -353,7 +353,7 @@ public class BrokerController {
                 }
             }, initialDelay, period, TimeUnit.MILLISECONDS);
 
-            //定时器 保存消费偏移值
+            //每隔5s 保存消费偏移值
             this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
                 @Override
                 public void run() {
@@ -897,8 +897,11 @@ public class BrokerController {
         }
 
         if (!messageStoreConfig.isEnableDLegerCommitLog()) {
+            //如果是主节点，启动事务消息检查器
             startProcessorByHa(messageStoreConfig.getBrokerRole());
+            //处理从节点同步器
             handleSlaveSynchronize(messageStoreConfig.getBrokerRole());
+            //立马向NameServer 发送心跳包
             this.registerBrokerAll(true, false, true);
         }
 
@@ -970,6 +973,9 @@ public class BrokerController {
         }
     }
 
+    /**
+     * 向namesrv注册broker信息，每隔30s执行一次
+     */
     private void doRegisterBrokerAll(boolean checkOrderConfig, boolean oneway,
                                      TopicConfigSerializeWrapper topicConfigWrapper) {
         List<RegisterBrokerResult> registerBrokerResultList = this.brokerOuterAPI.registerBrokerAll(
@@ -984,6 +990,7 @@ public class BrokerController {
                 this.brokerConfig.getRegisterBrokerTimeoutMills(),
                 this.brokerConfig.isCompressedRegister());
 
+        //Slave在注册Broker时,Namesrv会将Master的BrokerAddr返回来,更新HAClient上的 masterAddress
         if (registerBrokerResultList.size() > 0) {
             RegisterBrokerResult registerBrokerResult = registerBrokerResultList.get(0);
             if (registerBrokerResult != null) {
@@ -1158,6 +1165,8 @@ public class BrokerController {
                 slaveSyncFuture.cancel(false);
             }
             this.slaveSynchronize.setMasterAddr(null);
+
+            // 每隔10s中执行从节点同步器
             slaveSyncFuture = this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
                 @Override
                 public void run() {

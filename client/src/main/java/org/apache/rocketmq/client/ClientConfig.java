@@ -42,15 +42,17 @@ public class ClientConfig {
     protected AccessChannel accessChannel = AccessChannel.LOCAL;
 
     /**
-     * Pulling topic information interval from the named server
+     * 从命名服务器拉取topic路由信息的间隔 （默认30s）
      */
     private int pollNameServerInterval = 1000 * 30;
+
     /**
-     * Heartbeat interval in microseconds with message broker
+     * 向broker发送心跳的间隔 （默认30s）
      */
     private int heartbeatBrokerInterval = 1000 * 30;
+
     /**
-     * Offset persistent interval for consumer
+     * 消费进度持久化间隔（默认5s）
      */
     private int persistConsumerOffsetInterval = 1000 * 5;
     private long pullTimeDelayMillsWhenException = 1000;

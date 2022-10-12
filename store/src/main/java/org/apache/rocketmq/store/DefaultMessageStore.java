@@ -1563,6 +1563,7 @@ public class DefaultMessageStore implements MessageStore {
             boolean spacefull = this.isSpaceToDelete();
             boolean manualDelete = this.manualDeleteFileSeveralTimes > 0;
 
+            //每天清理时间到达、磁盘剩余空间小了、手动删除
             if (timeup || spacefull || manualDelete) {
 
                 if (manualDelete)
@@ -1619,10 +1620,18 @@ public class DefaultMessageStore implements MessageStore {
 
             cleanImmediately = false;
 
+            /** 磁盘是否满了。设置三个值
+             *  1、diskMaxUsedSpaceRatio 磁盘最大利用率
+             *  2、diskSpaceWarningLevelRatio 磁盘空间警戒阈值，超过这个值则停止接受消息，默认值90
+             *  3、diskSpaceCleanForciblyRatio 强制删除文件阈值，默认85
+             */
+————————————————
+
             {
                 String storePathPhysic = DefaultMessageStore.this.getMessageStoreConfig().getStorePathCommitLog();
                 double physicRatio = UtilAll.getDiskPartitionSpaceUsedPercent(storePathPhysic);
                 if (physicRatio > diskSpaceWarningLevelRatio) {
+                    // 磁盘空间警戒阈值，标记系统状态，禁止接受消息
                     boolean diskok = DefaultMessageStore.this.runningFlags.getAndMakeDiskFull();
                     if (diskok) {
                         DefaultMessageStore.log.error("physic disk maybe full soon " + physicRatio + ", so mark disk full");
@@ -1843,6 +1852,7 @@ public class DefaultMessageStore implements MessageStore {
                     break;
                 }
 
+                // 根据reputFromOffset获取commitLog中对应的mappedFile的对应位置起始的所有消息数据
                 SelectMappedBufferResult result = DefaultMessageStore.this.commitLog.getData(reputFromOffset);
                 if (result != null) {
                     try {
@@ -1855,8 +1865,10 @@ public class DefaultMessageStore implements MessageStore {
 
                             if (dispatchRequest.isSuccess()) {
                                 if (size > 0) {
+                                    // 根据 commitlog 文件内容实时构建 consumequeue、index文件的关键所在
                                     DefaultMessageStore.this.doDispatch(dispatchRequest);
 
+                                    // 通知消息消费长轮询线程，有新的消息落盘，立即唤醒挂起的消息拉取请求
                                     if (BrokerRole.SLAVE != DefaultMessageStore.this.getMessageStoreConfig().getBrokerRole()
                                         && DefaultMessageStore.this.brokerConfig.isLongPollingEnable()) {
                                         DefaultMessageStore.this.messageArrivingListener.arriving(dispatchRequest.getTopic(),
@@ -1864,9 +1876,10 @@ public class DefaultMessageStore implements MessageStore {
                                             dispatchRequest.getTagsCode(), dispatchRequest.getStoreTimestamp(),
                                             dispatchRequest.getBitMap(), dispatchRequest.getPropertiesMap());
                                     }
-
+                                    // 更新下一次同步位置
                                     this.reputFromOffset += size;
                                     readSize += size;
+                                    //从节点同步信息统计。
                                     if (DefaultMessageStore.this.getMessageStoreConfig().getBrokerRole() == BrokerRole.SLAVE) {
                                         DefaultMessageStore.this.storeStatsService
                                             .getSinglePutMessageTopicTimesTotal(dispatchRequest.getTopic()).incrementAndGet();

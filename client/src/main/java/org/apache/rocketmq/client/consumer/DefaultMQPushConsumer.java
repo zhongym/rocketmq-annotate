@@ -160,6 +160,7 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
 
     /**
      * Max consumer thread number
+     * 线程池的最大线程数，（由于线程池使用的LinkedBlockingQueue无界队列，所以这个参数并不起效果）
      */
     private int consumeThreadMax = 20;
 
@@ -252,7 +253,7 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
     /**
      * Maximum amount of time in minutes a message may block the consuming thread.
      */
-    private long consumeTimeout = 15;
+    private long consumeTimeout = 1;
 
     /**
      * Interface of asynchronous transfer data

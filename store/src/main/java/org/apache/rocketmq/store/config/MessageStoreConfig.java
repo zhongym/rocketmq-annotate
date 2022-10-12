@@ -74,8 +74,9 @@ public class MessageStoreConfig {
     // 何时删除，默认为凌晨4点
     @ImportantField
     private String deleteWhen = "04";
+    //磁盘最大已用空间比率
     private int diskMaxUsedSpaceRatio = 75;
-    // 删除日志文件前保留日志的小时数（小时）
+    // 删除日志文件前保留日志的小时数（默认3天）
     @ImportantField
     private int fileReservedTime = 72;
     // Flow control for ConsumeQueue
@@ -128,6 +129,7 @@ public class MessageStoreConfig {
     private int syncFlushTimeout = 1000 * 5;
     private String messageDelayLevel = "1s 5s 10s 30s 1m 2m 3m 4m 5m 6m 7m 8m 9m 10m 20m 30m 1h 2h";
     private long flushDelayOffsetInterval = 1000 * 10;
+    //当磁盘占用过大，清理文件强制启用
     @ImportantField
     private boolean cleanFileForciblyEnable = true;
     private boolean warmMapedFileEnable = false;

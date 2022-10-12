@@ -134,16 +134,17 @@ public class ConsumerManageProcessor implements NettyRequestProcessor {
             response.setCode(ResponseCode.SUCCESS);
             response.setRemark(null);
         } else {
-            long minOffset =
-                this.brokerController.getMessageStore().getMinOffsetInQueue(requestHeader.getTopic(),
+            long minOffset = this.brokerController.getMessageStore().getMinOffsetInQueue(requestHeader.getTopic(),
                     requestHeader.getQueueId());
+            // 订阅组不存在情况下，如果这个队列的消息最小Offset是0，则表示这个Topic上线时间不长，服务器堆积的数据也不多，那么这个订阅组就从0开始消费。
+            // 尤其对于Topic队列数动态扩容时，必须要从0开始消费。
             if (minOffset <= 0
-                && !this.brokerController.getMessageStore().checkInDiskByConsumeOffset(
+                && !this.brokerController.getMessageStore().checkInDiskByConsumeOffset( //消息还在pagecache
                 requestHeader.getTopic(), requestHeader.getQueueId(), 0)) {
-                responseHeader.setOffset(0L);
+                responseHeader.setOffset(0L);//为了避免扩容的时候消息被跳过，直接告诉客户端从0开始消费
                 response.setCode(ResponseCode.SUCCESS);
                 response.setRemark(null);
-            } else {
+            } else { //认为是新的消费者组，返回QUERY_NOT_FOUND
                 response.setCode(ResponseCode.QUERY_NOT_FOUND);
                 response.setRemark("Not found, V3_0_6_SNAPSHOT maybe this group consumer boot first");
             }

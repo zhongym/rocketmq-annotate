@@ -82,7 +82,7 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     private volatile int defaultTopicQueueNums = 4;
 
     /**
-     * Timeout for sending messages.
+     * 发送消息超时时间
      */
     private int sendMsgTimeout = 3000;
 

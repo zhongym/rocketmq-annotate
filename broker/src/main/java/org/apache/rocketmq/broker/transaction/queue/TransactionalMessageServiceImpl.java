@@ -180,8 +180,9 @@ public class TransactionalMessageServiceImpl implements TransactionalMessageServ
                                 continue;
                             }
                         }
-
+                        // 如果半消息超过最大回查次数（默认15次），或者超过文件保留时间，即会丢弃该消息（回滚处理）。。
                         if (needDiscard(msgExt, transactionCheckMax) || needSkip(msgExt)) {
+                            //将消息移到TRANS_CHECK_MAXTIME_TOPIC主题中
                             listener.resolveDiscardMsg(msgExt);
                             newOffset = i + 1;
                             i++;
@@ -217,10 +218,14 @@ public class TransactionalMessageServiceImpl implements TransactionalMessageServ
                             || (opMsg != null && (opMsg.get(opMsg.size() - 1).getBornTimestamp() - startTime > transactionTimeout))
                             || (valueOfCurrentMinusBorn <= -1);
 
+                        //如果半消息创建时间到现在已经超过超时回查时间（默认6秒），
+                        // 并且半消息不包含在op topic中（说明该消息没被提交或者确认过）
                         if (isNeedCheck) {
+                            //再次将半消息写入到 half topic，
                             if (!putBackHalfMsgQueue(msgExt, i)) {
                                 continue;
                             }
+                            //Broker会给对应的Producer发一个执行事务状态检测的请求（异步）。
                             listener.resolveHalfMsg(msgExt);
                         } else {
                             pullResult = fillOpRemoveMap(removeMap, opQueue, pullResult.getNextBeginOffset(), halfOffset, doneOpOffset);
@@ -232,6 +237,8 @@ public class TransactionalMessageServiceImpl implements TransactionalMessageServ
                     newOffset = i + 1;
                     i++;
                 }
+                //更新half、op 主题 Queue中的偏移量。
+                //（记录这些偏移量之前半消息已经被检测过，定时器再次执行会从这个偏移量开始检测）
                 if (newOffset != halfOffset) {
                     transactionalMessageBridge.updateConsumeOffset(messageQueue, newOffset);
                 }

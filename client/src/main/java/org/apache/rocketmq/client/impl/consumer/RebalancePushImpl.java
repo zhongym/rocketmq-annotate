@@ -60,6 +60,7 @@ public class RebalancePushImpl extends RebalanceImpl {
 
         int currentQueueCount = this.processQueueTable.size();
         if (currentQueueCount != 0) {
+            // 更新队列级别的限制消息数量=主题级别的限制消息数量/处理队列数 （默认主题级别是不限制的）
             int pullThresholdForTopic = this.defaultMQPushConsumerImpl.getDefaultMQPushConsumer().getPullThresholdForTopic();
             if (pullThresholdForTopic != -1) {
                 int newVal = Math.max(1, pullThresholdForTopic / currentQueueCount);
@@ -68,6 +69,7 @@ public class RebalancePushImpl extends RebalanceImpl {
                 this.defaultMQPushConsumerImpl.getDefaultMQPushConsumer().setPullThresholdForQueue(newVal);
             }
 
+            // 更新在队列级别限制缓存消息大小=主题级别的缓存消息大小/处理队列数 （默认主题级别是不限制的）
             int pullThresholdSizeForTopic = this.defaultMQPushConsumerImpl.getDefaultMQPushConsumer().getPullThresholdSizeForTopic();
             if (pullThresholdSizeForTopic != -1) {
                 int newVal = Math.max(1, pullThresholdSizeForTopic / currentQueueCount);
@@ -77,14 +79,18 @@ public class RebalancePushImpl extends RebalanceImpl {
             }
         }
 
-        // notify broker
+        // 向broker发送心跳
         this.getmQClientFactory().sendHeartbeatToAllBrokerWithLock();
     }
 
     @Override
     public boolean removeUnnecessaryMessageQueue(MessageQueue mq, ProcessQueue pq) {
+        // 持久化消费进度
         this.defaultMQPushConsumerImpl.getOffsetStore().persist(mq);
+        // 从消费进度管理列表中移除
         this.defaultMQPushConsumerImpl.getOffsetStore().removeOffset(mq);
+
+        // 如果是顺序消费，需要请求broker进行解释
         if (this.defaultMQPushConsumerImpl.isConsumeOrderly()
             && MessageModel.CLUSTERING.equals(this.defaultMQPushConsumerImpl.messageModel())) {
             try {
@@ -137,6 +143,12 @@ public class RebalancePushImpl extends RebalanceImpl {
         this.defaultMQPushConsumerImpl.getOffsetStore().removeOffset(mq);
     }
 
+    /**
+     * @param mq
+     * @return -1：计算有误
+     *          0：从头开始消费
+     *          >0: 从上一次记录开始消费（或者从最后的消息开始消费）
+     */
     @Override
     public long computePullFromWhere(MessageQueue mq) {
         long result = -1;
@@ -147,6 +159,10 @@ public class RebalancePushImpl extends RebalanceImpl {
             case CONSUME_FROM_MIN_OFFSET:
             case CONSUME_FROM_MAX_OFFSET:
             case CONSUME_FROM_LAST_OFFSET: {
+                //返回消费组的历史进度
+                //如果消费组是新的，或者这个队列是新的。
+                //如果consumer group是最近创建的，最早订阅的消息还没有过期，说明consumer group代表最近上线的业务，从头开始消费；
+                //如果最早订阅的消息已过期，则从最新消息开始消费，这意味着在启动时间戳之前生成的消息将被忽略。
                 long lastOffset = offsetStore.readOffset(mq, ReadOffsetType.READ_FROM_STORE);
                 if (lastOffset >= 0) {
                     result = lastOffset;
