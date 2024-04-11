@@ -48,6 +48,10 @@ public class ProcessQueue {
     private final TreeMap<Long, MessageExt> msgTreeMap = new TreeMap<Long, MessageExt>();
     private final AtomicLong msgCount = new AtomicLong();
     private final AtomicLong msgSize = new AtomicLong();
+    /**
+     * 这个锁仅用于顺序消息，顺序消费消费时，会进行加锁。这样当rebalance时，如果发现这个锁被加了，则不进行进行移除，等待消费完成。
+     * 防止消息消费到一半时，触发rebalance移除pocessQueue，导致重复消费。
+     */
     private final Lock lockConsume = new ReentrantLock();
     /**
      * A subset of msgTreeMap, will only be used when orderly consume

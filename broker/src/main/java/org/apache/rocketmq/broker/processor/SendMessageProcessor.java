@@ -68,6 +68,7 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
 
         switch (request.getCode()) {
             case RequestCode.CONSUMER_SEND_MSG_BACK:
+                // 消费失败发回来的消息
                 return this.consumerSendMsgBack(ctx, request);
             default:
                 //从请求命令中解析出请求头
@@ -82,8 +83,10 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
 
                 RemotingCommand response;
                 if (requestHeader.isBatch()) {
+                    // 批量消息
                     response = this.sendBatchMessage(ctx, request, mqtraceContext, requestHeader);
                 } else {
+                    // 单条消息
                     response = this.sendMessage(ctx, request, mqtraceContext, requestHeader);
                 }
                 //执行消息发送后回调钩子
